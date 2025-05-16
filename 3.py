@@ -10,15 +10,16 @@ correlations = [-0.9, -0.5, 0.0, 0.5, 0.9]
 for rho in correlations:
     print(f"\n=== Коэффициент корреляции ρ = {rho} ===")
 
-    # --- Загрузка сохранённой выборки ---
+    # Загрузка сохранённой выборки
     file_name = f"bivariate_sample_rho_{str(rho).replace('.', '').replace('-', 'm')}.npy"
     data = np.load(file_name)
     X = data[:, 0]
     Y = data[:, 1]
 
-    # 3.1 Точечные оценки и корреляция
+    # 3.1 Точечные оценки
     mean_X, mean_Y = np.mean(X), np.mean(Y)
     var_X, var_Y = np.var(X, ddof=1), np.var(Y, ddof=1)
+    cov_XY = np.cov(X, Y, ddof=1)[0, 1]
     r_xy, p_val = pearsonr(X, Y)
 
     print(f"Оценка M(X): {mean_X:.4f}, Var(X): {var_X:.4f}")
@@ -34,16 +35,34 @@ for rho in correlations:
     else:
         print("Гипотеза о независимости ОТВЕРГАЕТСЯ.")
 
-    # 3.3 Построение графика рассеяния
-    plt.figure(figsize=(5, 5))
-    plt.scatter(X, Y, alpha=0.5, label=f"ρ = {rho}")
-    plt.title(f"Диаграмма рассеяния (ρ = {rho})")
+    # 3.3 Уравнения регрессий
+    a = cov_XY / var_X
+    b = mean_Y - a * mean_X
+    c = cov_XY / var_Y
+    d = mean_X - c * mean_Y
+
+    print(f"Уравнение регрессии Y на X: Y = {a:.4f}·X + {b:.4f}")
+    print(f"Уравнение регрессии X на Y: X = {c:.4f}·Y + {d:.4f}")
+
+    # Построение графика с линиями регрессий
+    plt.figure(figsize=(6, 6))
+    plt.scatter(X, Y, alpha=0.4, label='Данные')
+
+    x_vals = np.linspace(min(X), max(X), 100)
+    y_on_x = a * x_vals + b
+    y_vals = np.linspace(min(Y), max(Y), 100)
+    x_on_y = c * y_vals + d
+
+    plt.plot(x_vals, y_on_x, color='red', label='Y на X')
+    plt.plot(x_on_y, y_vals, color='green', linestyle='--', label='X на Y')
+    plt.title(f"Диаграмма рассеяния и регрессии (ρ = {rho})")
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.axis('equal')
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(f"scatter_rho_{str(rho).replace('.', '')}.png", dpi=300)
+    plt.savefig(f"regression_rho_{str(rho).replace('.', '')}.png", dpi=300)
+    plt.close()
 
 print("\nАнализ завершён.")
