@@ -2,16 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import expon, chi2
 
+# --- Загрузка сохранённой выборки ---
+Y = np.load("exp_sample.npy")
+
 # Исходные данные
-n = 475
+n = len(Y)
 alpha = 0.001
 gamma = 0.999
-
-# Параметры экспоненциального распределения
-true_lambda = 0.5  # плотность: f(y) = λ * exp(-λy)
-
-# Генерация выборки
-Y = np.random.exponential(scale=1 / true_lambda, size=n)
+true_lambda = 0.5
 
 # 2.1 Гистограмма + теоретическая плотность
 plt.figure(figsize=(10, 6))

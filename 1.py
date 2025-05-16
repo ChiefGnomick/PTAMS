@@ -2,16 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm, chi2
 
+# Загрузка сохранённой выборки
+X = np.load("norm_sample.npy")
+
 # Исходные данные
-n = 475
+n = len(X)
 mu = 1.8
 sigma2 = 9.5
 sigma = np.sqrt(sigma2)
 gamma = 0.999
 alpha = 0.001
-
-# 1.1 Генерация выборки и построение гистограммы с теоретической плотностью
-X = np.random.normal(loc=mu, scale=sigma, size=n)
 
 plt.figure(figsize=(10, 6))
 count, bins, ignored = plt.hist(X, bins='auto', density=True, alpha=0.6, color='skyblue', edgecolor='black', label='Гистограмма')

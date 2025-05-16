@@ -1,29 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import norm, chi2, pearsonr
+from scipy.stats import norm, pearsonr
 
-np.random.seed(0)
-
-# === ПАРАМЕТРЫ ===
-n = 475  # объём выборки
-mu_X, mu_Y = 0, 0
-sigma_X, sigma_Y = 1, 1
-alpha = 0.001  # уровень значимости
-
-# === ТЕСТОВЫЕ КОРРЕЛЯЦИИ ===
+# Исходные данные
+n = 475
+alpha = 0.001
 correlations = [-0.9, -0.5, 0.0, 0.5, 0.9]
 
 for rho in correlations:
     print(f"\n=== Коэффициент корреляции ρ = {rho} ===")
 
-    # Ковариационная матрица
-    cov_matrix = [
-        [sigma_X**2, rho * sigma_X * sigma_Y],
-        [rho * sigma_X * sigma_Y, sigma_Y**2]
-    ]
-
-    # Генерация двумерной нормальной выборки
-    data = np.random.multivariate_normal([mu_X, mu_Y], cov_matrix, size=n)
+    # --- Загрузка сохранённой выборки ---
+    file_name = f"bivariate_sample_rho_{str(rho).replace('.', '').replace('-', 'm')}.npy"
+    data = np.load(file_name)
     X = data[:, 0]
     Y = data[:, 1]
 
