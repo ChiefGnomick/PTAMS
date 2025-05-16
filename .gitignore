@@ -6,3 +6,5 @@
 /scatter_rho_05.png
 /scatter_rho_09.png
 /venv
+.*csv
+.*npy
