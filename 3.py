@@ -1,68 +1,61 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import norm, pearsonr
+from scipy.stats import chi2_contingency
 
-# Исходные данные
-n = 475
-alpha = 0.001
-correlations = [-0.9, -0.5, 0.0, 0.5, 0.9]
+# Загрузка выборки
+data = np.load("bivariate_sample_task3.npy")
+X, Y = data[:, 0], data[:, 1]
+n = len(X)
+alpha = 0.05
 
-for rho in correlations:
-    print(f"\n=== Коэффициент корреляции ρ = {rho} ===")
 
-    # Загрузка сохранённой выборки
-    file_name = f"bivariate_sample_rho_{str(rho).replace('.', '').replace('-', 'm')}.npy"
-    data = np.load(file_name)
-    X = data[:, 0]
-    Y = data[:, 1]
+# --- 3.1. Точечные оценки ---
+mean_X = np.mean(X)
+mean_Y = np.mean(Y)
+var_X = np.var(X, ddof=1)
+var_Y = np.var(Y, ddof=1)
 
-    # 3.1 Точечные оценки
-    mean_X, mean_Y = np.mean(X), np.mean(Y)
-    var_X, var_Y = np.var(X, ddof=1), np.var(Y, ddof=1)
-    cov_XY = np.cov(X, Y, ddof=1)[0, 1]
-    r_xy, p_val = pearsonr(X, Y)
+# Коэффициент корреляции Пирсона
+r_xy = np.corrcoef(X, Y)[0, 1]
 
-    print(f"Оценка M(X): {mean_X:.4f}, Var(X): {var_X:.4f}")
-    print(f"Оценка M(Y): {mean_Y:.4f}, Var(Y): {var_Y:.4f}")
-    print(f"Оценка корреляции r: {r_xy:.4f}, p-value: {p_val:.4f}")
+print(f"3.1 Точечные оценки:")
+print(f"  M[X] = {mean_X:.4f},  D[X] = {var_X:.4f}")
+print(f"  M[Y] = {mean_Y:.4f},  D[Y] = {var_Y:.4f}")
+print(f"  r(X,Y) = {r_xy:.4f}")
 
-    # 3.2 Проверка гипотезы о независимости
-    t_stat = r_xy * np.sqrt((n - 2) / (1 - r_xy**2))
-    t_crit = norm.ppf(1 - alpha / 2)
-    print(f"t-статистика: {t_stat:.4f}, критическое значение: ±{t_crit:.4f}")
-    if abs(t_stat) < t_crit:
-        print("Гипотеза о независимости ПРИНИМАЕТСЯ.")
+# --- 3.2 Проверка гипотезы независимости (с обработкой нулей) ---
+k = int(np.sqrt(n))
+x_bins = np.linspace(min(X), max(X), k)
+y_bins = np.linspace(min(Y), max(Y), k)
+
+contingency_table, _, _ = np.histogram2d(X, Y, bins=[x_bins, y_bins])
+
+# Удалим строки и столбцы, содержащие только нули
+nonzero_rows = ~np.all(contingency_table == 0, axis=1)
+nonzero_cols = ~np.all(contingency_table == 0, axis=0)
+clean_table = contingency_table[np.ix_(nonzero_rows, nonzero_cols)]
+
+# Проверим размер таблицы
+if clean_table.shape[0] < 2 or clean_table.shape[1] < 2:
+    print("\n3.2 Недостаточно данных для критерия χ²: после очистки осталась слишком малая таблица.")
+else:
+    chi2_stat, p_val, dof, _ = chi2_contingency(clean_table)
+
+    print(f"\n3.2 Проверка независимости (хи-квадрат):")
+    print(f"  χ² = {chi2_stat:.4f}, df = {dof}, p = {p_val:.4f}")
+    if p_val > alpha:
+        print("  Гипотеза о независимости ПРИНИМАЕТСЯ.")
     else:
-        print("Гипотеза о независимости ОТВЕРГАЕТСЯ.")
+        print("  Гипотеза о независимости ОТВЕРГАЕТСЯ.")
 
-    # 3.3 Уравнения регрессий
-    a = cov_XY / var_X
-    b = mean_Y - a * mean_X
-    c = cov_XY / var_Y
-    d = mean_X - c * mean_Y
+# --- 3.3 Влияние корреляции ---
+# Здесь можно варьировать rho и построить графики (см. дальше при необходимости)
 
-    print(f"Уравнение регрессии Y на X: Y = {a:.4f}·X + {b:.4f}")
-    print(f"Уравнение регрессии X на Y: X = {c:.4f}·Y + {d:.4f}")
-
-    # Построение графика с линиями регрессий
-    plt.figure(figsize=(6, 6))
-    plt.scatter(X, Y, alpha=0.4, label='Данные')
-
-    x_vals = np.linspace(min(X), max(X), 100)
-    y_on_x = a * x_vals + b
-    y_vals = np.linspace(min(Y), max(Y), 100)
-    x_on_y = c * y_vals + d
-
-    plt.plot(x_vals, y_on_x, color='red', label='Y на X')
-    plt.plot(x_on_y, y_vals, color='green', linestyle='--', label='X на Y')
-    plt.title(f"Диаграмма рассеяния и регрессии (ρ = {rho})")
-    plt.xlabel("X")
-    plt.ylabel("Y")
-    plt.axis('equal')
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(f"regression_rho_{str(rho).replace('.', '')}.png", dpi=300)
-    plt.close()
-
-print("\nАнализ завершён.")
+# --- Визуализация ---
+plt.figure(figsize=(8, 6))
+plt.scatter(X, Y, alpha=0.6, edgecolors='k')
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.title("Диаграмма рассеяния X и Y")
+plt.grid(True)
+plt.savefig("scatter_task3.png", dpi=300, bbox_inches="tight")
