@@ -1,67 +1,73 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import expon, chi2
+from scipy.stats import chi2
 
-# --- Загрузка сохранённой выборки ---
-Y = np.load("exp_sample.npy")
+# Загрузка выборки
+Y = np.load("power_sample.npy")
 
-# Исходные данные
-n = len(Y)
-alpha = 0.001
-gamma = 0.999
-true_lambda = 0.5
+# Исходные параметры
+a_real = 4
+alpha = 0.05
+gamma = 0.92
+N = len(Y)
 
-# 2.1 Гистограмма + теоретическая плотность
+# --- 2.1 Гистограмма и плотность ---
 plt.figure(figsize=(10, 6))
-count, bins, ignored = plt.hist(Y, bins='auto', density=True, alpha=0.6, color='lightgreen', edgecolor='black', label='Гистограмма')
-x = np.linspace(0, np.max(Y), 500)
-plt.plot(x, expon.pdf(x, scale=1 / true_lambda), 'r-', lw=2, label='Теоретическая плотность')
-plt.title('Гистограмма и теоретическая плотность экспоненциального распределения')
-plt.xlabel('Y')
-plt.ylabel('Плотность')
-plt.legend()
+count, bins, _ = plt.hist(Y, bins='auto', density=True, alpha=0.6, edgecolor='black', color='lightgreen', label='Гистограмма')
+
+# Теоретическая плотность: f(x) = a * x^(a-1)
+x_vals = np.linspace(0, 1, 500)
+f_x = a_real * x_vals**(a_real - 1)
+plt.plot(x_vals, f_x, 'r-', lw=2, label='Теоретическая плотность')
+
+plt.title("Гистограмма и теоретическая плотность")
+plt.xlabel("Y")
+plt.ylabel("Плотность")
 plt.grid(True)
+plt.legend()
 plt.savefig("histogram_2.png", dpi=300, bbox_inches="tight")
 
-# 2.2 Точечные оценки
+# --- 2.2 Выборочные оценки ---
 mean_Y = np.mean(Y)
 var_Y = np.var(Y, ddof=1)
-print(f"\n2.2 Точечные оценки:")
-print(f"Выборочное среднее: {mean_Y:.4f}")
-print(f"Выборочная дисперсия: {var_Y:.4f}")
+print(f"\n2.2 Среднее: {mean_Y:.4f}")
+print(f"Дисперсия: {var_Y:.4f}")
 
-# 2.3 Метод моментов
-# Математическое ожидание эксп. распределения = 1/λ => λ = 1/среднее
-lambda_mom = 1 / mean_Y
-print(f"\n2.3 Метод моментов:")
-print(f"Оценка λ методом моментов: {lambda_mom:.4f}")
+# --- 2.3 Метод моментов ---
+# Математическое ожидание: M[X] = a / (a + 1)
+# Решаем уравнение: mean_Y = a / (a + 1)
+# => a = mean_Y / (1 - mean_Y)
+a_moment = mean_Y / (1 - mean_Y)
+print(f"\n2.3 Оценка параметра a методом моментов: {a_moment:.4f}")
 
-# 2.4 Доверительный интервал для мат. ожидания и дисперсии
-# M(Y) = 1/λ; D(Y) = 1/λ^2; mean_Y — оценка M(Y)
-z = chi2.ppf(1 - alpha / 2, df=n)
-ci_mean = (mean_Y / np.sqrt(z / n), mean_Y * np.sqrt(z / n))
-ci_var = (var_Y * (n - 1) / chi2.ppf(1 - alpha / 2, n - 1),
-          var_Y * (n - 1) / chi2.ppf(alpha / 2, n - 1))
+# --- 2.4 Доверительные интервалы ---
+from scipy.stats import norm
 
-print(f"\n2.4 Доверительные интервалы (γ = {gamma}):")
-print(f"Мат. ожидание: [{ci_mean[0]:.4f}, {ci_mean[1]:.4f}]")
-print(f"Дисперсия: [{ci_var[0]:.4f}, {ci_var[1]:.4f}]")
+z = norm.ppf(1 - alpha / 2)
+ci_mean = (mean_Y - z * np.sqrt(var_Y / N), mean_Y + z * np.sqrt(var_Y / N))
 
-# 2.5 Проверка гипотезы о виде распределения (χ²-критерий)
-k = int(np.sqrt(n))  # Кол-во интервалов
+chi2_left = chi2.ppf(alpha / 2, df=N - 1)
+chi2_right = chi2.ppf(1 - alpha / 2, df=N - 1)
+ci_var = ((N - 1) * var_Y / chi2_right, (N - 1) * var_Y / chi2_left)
+
+print(f"\n2.4 Доверительный интервал для среднего: [{ci_mean[0]:.4f}, {ci_mean[1]:.4f}]")
+print(f"Доверительный интервал для дисперсии: [{ci_var[0]:.4f}, {ci_var[1]:.4f}]")
+
+# --- 2.5 Критерий Пирсона ---
+k = int(np.sqrt(N))
 observed_freq, bin_edges = np.histogram(Y, bins=k)
 expected_freq = np.array([
-    n * (expon.cdf(bin_edges[i+1], scale=1 / lambda_mom) - expon.cdf(bin_edges[i], scale=1 / lambda_mom))
+    N * (bin_edges[i+1]**a_real - bin_edges[i]**a_real)
     for i in range(k)
 ])
-chi2_stat = np.sum((observed_freq - expected_freq) ** 2 / expected_freq)
-df = k - 1 - 1  # Оценка 1 параметра (λ)
+
+chi2_stat = np.sum((observed_freq - expected_freq)**2 / expected_freq)
+df = k - 1 - 1  # Один параметр a оценивался
 chi2_crit = chi2.ppf(1 - alpha, df)
 
-print(f"\n2.5 Проверка гипотезы χ²:")
-print(f"Статистика: {chi2_stat:.4f}")
-print(f"Критическое значение при α={alpha}, df={df}: {chi2_crit:.4f}")
+print(f"\n2.5 χ²-статистика: {chi2_stat:.4f}")
+print(f"Критическое значение χ² (df={df}): {chi2_crit:.4f}")
 if chi2_stat < chi2_crit:
-    print("Гипотеза о виде распределения ПРИНИМАЕТСЯ.")
+    print("Гипотеза о распределении ПРИНИМАЕТСЯ.")
 else:
     print("Гипотеза ОТВЕРГАЕТСЯ.")
